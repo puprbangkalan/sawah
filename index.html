@@ -1,128 +1,135 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Web GIS Leaflet</title>
+    <title>Peta Desa</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- Leaflet Search Plugin -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.min.css" />
+    <script src="https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.min.js"></script>
+
     <style>
         #map { height: 600px; }
-        .dropdown-container { margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <div class="dropdown-container">
-        <label for="desa-dropdown">Pilih NAMA DESA:</label>
-        <select id="desa-dropdown">
-            <option value="">--Pilih Desa--</option>
-        </select>
-    </div>
-    <div id="map"></div>
 
-    <script>
-        // Initialize the map
-        var map = L.map('map').setView([-6.1751, 106.8650], 10); // Set the default view to a general location
+<h3>Peta Desa</h3>
 
-        // Load a tile layer (OpenStreetMap)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+<!-- Dropdown for selecting Desa -->
+<label for="desaSelect">Pilih NAMA DESA:</label>
+<select id="desaSelect">
+    <option value="">Semua Desa</option>
+</select>
 
-        // GeoJSON placeholder
-        var geojsonLayer;
+<div id="map"></div>
 
-        // Style for the polygons
-        function style(feature) {
-            return {
-                fillColor: 'none',   // No fill
-                color: 'green',      // Outline color
-                weight: 2,
-                opacity: 1
-            };
+<script>
+    // Initialize the map
+    var map = L.map('map').setView([-7.25, 112.75], 10); // Initial view set to a generic location
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // GeoJSON Layer
+    var geojsonLayer;
+
+    // Function to style the polygons (no fill, green outline)
+    function style(feature) {
+        return {
+            fillColor: null, // No fill color
+            weight: 2,
+            opacity: 1,
+            color: 'green',  // Outline color
+            fillOpacity: 0
+        };
+    }
+
+    // Function to bind popups with all attributes
+    function onEachFeature(feature, layer) {
+        var popupContent = "<strong>Attributes:</strong><br>";
+        for (var key in feature.properties) {
+            popupContent += key + ": " + feature.properties[key] + "<br>";
         }
+        layer.bindPopup(popupContent);
+    }
 
-        // Add GeoJSON data to the map
-        function addGeoJSON(geojsonData) {
-            if (geojsonLayer) {
-                map.removeLayer(geojsonLayer); // Remove existing layer if present
-            }
-
-            geojsonLayer = L.geoJSON(geojsonData, {
+    // Load GeoJSON (replace 'your-geojson-file.geojson' with your actual GeoJSON file)
+    fetch('bangkalan.geojson')
+        .then(response => response.json())
+        .then(data => {
+            // Add GeoJSON layer
+            geojsonLayer = L.geoJson(data, {
                 style: style,
-                onEachFeature: function (feature, layer) {
-                    // Bind popup with the WADMKD (nama desa)
-                    layer.bindPopup(feature.properties.WADMKD);
-                }
+                onEachFeature: onEachFeature
             }).addTo(map);
-        }
 
-        // Load GeoJSON (replace with your actual GeoJSON file path)
-        fetch('bangkalan.geojson') // Replace with the actual file path
-            .then(response => response.json())
-            .then(data => {
-                addGeoJSON(data);
+            // Populate the dropdown with WADMKD values
+            var desaSelect = document.getElementById('desaSelect');
+            var desaList = new Set();  // To avoid duplicates
 
-                // Populate the dropdown with WADMKD (nama desa)
-                var desaDropdown = document.getElementById('desa-dropdown');
-                data.features.forEach(function (feature) {
-                    var option = document.createElement('option');
-                    option.value = feature.properties.WADMKD;
-                    option.text = feature.properties.WADMKD;
-                    desaDropdown.add(option);
-                });
+            data.features.forEach(function (feature) {
+                desaList.add(feature.properties.WADMKD);
             });
 
-        // Dropdown change event to filter the map by desa
-        document.getElementById('desa-dropdown').addEventListener('change', function () {
-            var selectedDesa = this.value;
-            if (selectedDesa) {
-                geojsonLayer.eachLayer(function (layer) {
-                    if (layer.feature.properties.WADMKD === selectedDesa) {
-                        map.fitBounds(layer.getBounds());
-                        layer.openPopup();
-                    }
-                });
-            }
-        });
+            desaList.forEach(function (desa) {
+                var option = document.createElement("option");
+                option.value = desa;
+                option.text = desa;
+                desaSelect.appendChild(option);
+            });
 
-        // Geolocation function
-        map.locate({ setView: true, maxZoom: 16 });
-        function onLocationFound(e) {
-            var radius = e.accuracy / 2;
-            L.marker(e.latlng).addTo(map)
-                .bindPopup("You are within " + radius + " meters from this point").openPopup();
-            L.circle(e.latlng, radius).addTo(map);
-        }
-        map.on('locationfound', onLocationFound);
+            // Filter the map when a Desa is selected from the dropdown
+            desaSelect.addEventListener('change', function () {
+                var selectedDesa = this.value;
 
-        function onLocationError(e) {
-            alert(e.message);
-        }
-        map.on('locationerror', onLocationError);
+                geojsonLayer.clearLayers(); // Remove existing layers
 
-        // Search functionality
-        function searchDesa(desaName) {
-            geojsonLayer.eachLayer(function (layer) {
-                if (layer.feature.properties.WADMKD.toLowerCase() === desaName.toLowerCase()) {
-                    map.fitBounds(layer.getBounds());
-                    layer.openPopup();
+                if (selectedDesa) {
+                    // Filter features based on the selected Desa (WADMKD)
+                    geojsonLayer.addData(data.features.filter(function (feature) {
+                        return feature.properties.WADMKD === selectedDesa;
+                    }));
+                } else {
+                    // If no Desa is selected, show all features
+                    geojsonLayer.addData(data);
                 }
             });
-        }
-
-        // Example search trigger (you can implement a search input)
-        var searchButton = document.createElement('button');
-        searchButton.innerText = 'Search Desa';
-        document.body.appendChild(searchButton);
-
-        searchButton.addEventListener('click', function () {
-            var desaToSearch = prompt("Enter Desa Name: ");
-            if (desaToSearch) {
-                searchDesa(desaToSearch);
-            }
         });
 
-    </script>
+    // Add geolocation feature
+    map.locate({ setView: true, maxZoom: 16 });
+
+    function onLocationFound(e) {
+        var radius = e.accuracy / 2;
+        L.marker(e.latlng).addTo(map)
+            .bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+        L.circle(e.latlng, radius).addTo(map);
+    }
+
+    map.on('locationfound', onLocationFound);
+
+    // Add search control based on WADMKD attribute
+    var searchControl = new L.Control.Search({
+        layer: geojsonLayer,
+        propertyName: 'WADMKD', // The attribute to search
+        zoom: 14,               // Zoom level after search
+        textPlaceholder: 'Cari Desa...',
+    });
+
+    map.addControl(searchControl);
+
+</script>
+
 </body>
 </html>
