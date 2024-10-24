@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web GIS Leaflet</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        #map { height: 600px; }
+        .dropdown-container { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="dropdown-container">
+        <label for="desa-dropdown">Pilih NAMA DESA:</label>
+        <select id="desa-dropdown">
+            <option value="">--Pilih Desa--</option>
+        </select>
+    </div>
+    <div id="map"></div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([-6.1751, 106.8650], 10); // Set the default view to a general location
+
+        // Load a tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // GeoJSON placeholder
+        var geojsonLayer;
+
+        // Style for the polygons
+        function style(feature) {
+            return {
+                fillColor: 'none',   // No fill
+                color: 'green',      // Outline color
+                weight: 2,
+                opacity: 1
+            };
+        }
+
+        // Add GeoJSON data to the map
+        function addGeoJSON(geojsonData) {
+            if (geojsonLayer) {
+                map.removeLayer(geojsonLayer); // Remove existing layer if present
+            }
+
+            geojsonLayer = L.geoJSON(geojsonData, {
+                style: style,
+                onEachFeature: function (feature, layer) {
+                    // Bind popup with the WADMKD (nama desa)
+                    layer.bindPopup(feature.properties.WADMKD);
+                }
+            }).addTo(map);
+        }
+
+        // Load GeoJSON (replace with your actual GeoJSON file path)
+        fetch('https://github.com/puprbangkalan/sawah/blob/4dfb21466a915fa118a834bcaf0ef14500f11345/bangkalan.geojson') // Replace with the actual file path
+            .then(response => response.json())
+            .then(data => {
+                addGeoJSON(data);
+
+                // Populate the dropdown with WADMKD (nama desa)
+                var desaDropdown = document.getElementById('desa-dropdown');
+                data.features.forEach(function (feature) {
+                    var option = document.createElement('option');
+                    option.value = feature.properties.WADMKD;
+                    option.text = feature.properties.WADMKD;
+                    desaDropdown.add(option);
+                });
+            });
+
+        // Dropdown change event to filter the map by desa
+        document.getElementById('desa-dropdown').addEventListener('change', function () {
+            var selectedDesa = this.value;
+            if (selectedDesa) {
+                geojsonLayer.eachLayer(function (layer) {
+                    if (layer.feature.properties.WADMKD === selectedDesa) {
+                        map.fitBounds(layer.getBounds());
+                        layer.openPopup();
+                    }
+                });
+            }
+        });
+
+        // Geolocation function
+        map.locate({ setView: true, maxZoom: 16 });
+        function onLocationFound(e) {
+            var radius = e.accuracy / 2;
+            L.marker(e.latlng).addTo(map)
+                .bindPopup("You are within " + radius + " meters from this point").openPopup();
+            L.circle(e.latlng, radius).addTo(map);
+        }
+        map.on('locationfound', onLocationFound);
+
+        function onLocationError(e) {
+            alert(e.message);
+        }
+        map.on('locationerror', onLocationError);
+
+        // Search functionality
+        function searchDesa(desaName) {
+            geojsonLayer.eachLayer(function (layer) {
+                if (layer.feature.properties.WADMKD.toLowerCase() === desaName.toLowerCase()) {
+                    map.fitBounds(layer.getBounds());
+                    layer.openPopup();
+                }
+            });
+        }
+
+        // Example search trigger (you can implement a search input)
+        var searchButton = document.createElement('button');
+        searchButton.innerText = 'Search Desa';
+        document.body.appendChild(searchButton);
+
+        searchButton.addEventListener('click', function () {
+            var desaToSearch = prompt("Enter Desa Name: ");
+            if (desaToSearch) {
+                searchDesa(desaToSearch);
+            }
+        });
+
+    </script>
+</body>
+</html>
