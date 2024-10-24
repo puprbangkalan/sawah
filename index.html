@@ -54,13 +54,23 @@
         };
     }
 
-    // Function to bind popups with all attributes
+    // Function to bind popups and labels
     function onEachFeature(feature, layer) {
+        // Popup with all attributes
         var popupContent = "<strong>Attributes:</strong><br>";
         for (var key in feature.properties) {
             popupContent += key + ": " + feature.properties[key] + "<br>";
         }
         layer.bindPopup(popupContent);
+
+        // Add label based on 'URUT' attribute
+        if (feature.properties && feature.properties.URUT) {
+            layer.bindTooltip("URUT: " + feature.properties.URUT, {
+                permanent: true,
+                direction: "center",
+                className: "feature-label"
+            }).openTooltip();
+        }
     }
 
     // Load GeoJSON (replace 'your-geojson-file.geojson' with your actual GeoJSON file)
@@ -88,7 +98,7 @@
                 desaSelect.appendChild(option);
             });
 
-            // Filter the map when a Desa is selected from the dropdown
+            // Filter and zoom the map when a Desa is selected from the dropdown
             desaSelect.addEventListener('change', function () {
                 var selectedDesa = this.value;
 
@@ -96,12 +106,20 @@
 
                 if (selectedDesa) {
                     // Filter features based on the selected Desa (WADMKD)
-                    geojsonLayer.addData(data.features.filter(function (feature) {
+                    var filteredFeatures = data.features.filter(function (feature) {
                         return feature.properties.WADMKD === selectedDesa;
-                    }));
+                    });
+
+                    // Add filtered features to the map
+                    geojsonLayer.addData(filteredFeatures);
+
+                    // Zoom to the selected feature's bounds
+                    var layer = geojsonLayer.getLayers()[0];  // Assumes one match, modify if multiple matches
+                    map.fitBounds(layer.getBounds());
                 } else {
-                    // If no Desa is selected, show all features
+                    // If no Desa is selected, show all features and reset view
                     geojsonLayer.addData(data);
+                    map.setView([-7.25, 112.75], 10); // Reset view to the initial position
                 }
             });
         });
