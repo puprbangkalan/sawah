@@ -58,7 +58,7 @@
         }
 
         // Load GeoJSON (replace with your actual GeoJSON file path)
-        fetch('https://github.com/puprbangkalan/sawah/blob/4dfb21466a915fa118a834bcaf0ef14500f11345/bangkalan.geojson') // Replace with the actual file path
+        fetch('bangkalan.geojson') // Replace with the actual file path
             .then(response => response.json())
             .then(data => {
                 addGeoJSON(data);
